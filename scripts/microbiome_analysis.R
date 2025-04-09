@@ -202,7 +202,7 @@ alpha_diversity <- data.frame(
   "Shannon" = phyloseq::estimate_richness(ps_rare, measures = "Shannon"),
   "Status" = phyloseq::sample_data(ps_rare)$Status
 )
-view(alpha_diversity)
+View(alpha_diversity)
 saveRDS(alpha_diversity, file = "output/alpha_diversity.rds")
 
 
