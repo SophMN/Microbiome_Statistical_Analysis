@@ -266,5 +266,28 @@ clr_dist_matrix <- phyloseq::distance(ps_clr, method = "euclidean")
 #ADONIS test
 vegan::adonis2(clr_dist_matrix ~ phyloseq::sample_data(ps_clr)$Status)
 
+#Perform a dispersion test since the ADONIS test can be confounded by differences in dispersion
+dispr <- vegan::betadisper(clr_dist_matrix, phyloseq::sample_data(ps_clr)$Status)
+dispr
+permutest(dispr)
+plot(dispr, main = "Ordination and Dispersion Labels: Aitchison Distance", sub = "")
 
+#Beta diversity analysis using Bray-Curtis dissimilarity
+#
+bray_dist <- phyloseq::distance(ps_rel_abund, method = "bray")
+bray_dist
+as.matrix(bray_dist)[1:5, 1:5]
+
+#Ordination
+bray_ord <- phyloseq::ordinate(ps_rel_abund, method = "PCoA", distance = bray_dist)
+bray_ord
+
+#Generate PCoA plot
+plot_ordination(ps_rel_abund, bray_ord, color = "Status") +
+  stat_ellipse(aes(group = Status), linetype = 2)
+
+#ADONIS test
+vegan::adonis2(bray_dist ~ phyloseq::sample_data(ps_rel_abund)$Status)
+
+#Differential abundance testing
 
