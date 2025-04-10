@@ -20,7 +20,11 @@ library(HMP)
 ps <- readRDS("data/ps_giloteaux_2016.rds")
 ps
 ps_rel_abund <- readRDS("output/ps_rel_abund_giloteaux_2016.rds")
+ps_rel_abund
 ps_rare <- readRDS("output/ps_rare.rds")
+ps_rare
+alpha_diversity <- readRDS("output/alpha_diversity.rds")
+alpha_diversity
 
 ##Access the OTU table, sample metadata and taxonomy table files
 otu_table(ps)
@@ -202,9 +206,65 @@ alpha_diversity <- data.frame(
   "Shannon" = phyloseq::estimate_richness(ps_rare, measures = "Shannon"),
   "Status" = phyloseq::sample_data(ps_rare)$Status
 )
+head(alpha_diversity)
 View(alpha_diversity)
 saveRDS(alpha_diversity, file = "output/alpha_diversity.rds")
 
+#Plot alpha diversity metrics
+alpha_diversity %>% 
+  ggplot(aes(x = Status, y = Observed, color = Status, fill = Status)) +
+  geom_boxplot(color = "black") +
+  theme_bw() +
+  scale_fill_manual(values = c("Control" = "red", "Chronic Fatigue" = "blue")) +
+  labs(x = "Status", y = "Observed richness")
+
+alpha_diversity %>% 
+  ggplot(aes(x = Status, y = Shannon, color = Status, fill = Status)) +
+  geom_boxplot(color = "black") +
+  theme_bw() +
+  scale_fill_manual(values = c("Control" = "red", "Chronic Fatigue" = "blue")) +
+  labs(x = "Status", y = "Shannon's diversity index")
+
+#Calculate the median of the alpha diversity metrics
+alpha_diversity %>% 
+  group_by(Status) %>% 
+  summarise(median_observed = median(Observed),
+            median_shannon = median(Shannon))
+
+#Statistical testing
+wilcox.test(Observed ~ Status, data = alpha_diversity, exact = FALSE, conf.int = TRUE)
+wilcox.test(Shannon ~ Status, data = alpha_diversity, conf.int = TRUE)
+
+##Beta diversity
+#Centred log ratio (CLR) transformation of abundance data
+ps_clr <- microbiome::transform(ps, "clr")
+ps_clr
+nrow(otu_table(ps_clr))
+
+#Examine the OTU table after CLR transformation
+phyloseq::otu_table(ps_clr)[1:5, 1:5]
+
+#Principal component analysis
+ord_clr <- phyloseq::ordinate(ps_clr, "RDA")
+
+#Examine the eigen values and %proportion of variance explained
+head(ord_clr$CA$eig)
+sapply(ord_clr$CA$eig, function(x) x / sum(ord_clr$CA$eig))
+
+#Scale the axes and plot the ordination
+clr_1 <- ord_clr$CA$eig[1] / sum(ord_clr$CA$eig)
+clr_2 <- ord_clr$CA$eig[2] / sum(ord_clr$CA$eig)
+phyloseq::plot_ordination(ps, ord_clr, type = "samples", color = "Status") +
+  geom_point(size = 2) +
+  coord_fixed(clr_2 / clr_1) +
+  stat_ellipse(aes(group = Status), linetype = 2)
+
+#PERMANOVA
+#Generate a distance matrix
+clr_dist_matrix <- phyloseq::distance(ps_clr, method = "euclidean")
+
+#ADONIS test
+vegan::adonis2(clr_dist_matrix ~ phyloseq::sample_data(ps_clr)$Status)
 
 
 
