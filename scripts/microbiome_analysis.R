@@ -17,7 +17,7 @@ library(selbal)
 library(HMP)
 
 ##Load the data
-ps <- readRDS("data/ps_giloteaux_2016.rds")
+ps <- readRDS("output/ps.rds")
 ps
 ps_rel_abund <- readRDS("output/ps_rel_abund_giloteaux_2016.rds")
 ps_rel_abund
@@ -64,6 +64,7 @@ ps %>%
   sample_data %>% 
   dplyr::count(Status)
 table(sample_data(ps)$Status)
+saveRDS(ps, file = "output/ps.rds")
 
 ##Visualise the relative abundance
 #Get the count of phyla
@@ -239,6 +240,7 @@ wilcox.test(Shannon ~ Status, data = alpha_diversity, conf.int = TRUE)
 #Centred log ratio (CLR) transformation of abundance data
 ps_clr <- microbiome::transform(ps, "clr")
 ps_clr
+saveRDS(ps_clr, file = "output/ps_clr.rds")
 nrow(otu_table(ps_clr))
 
 #Examine the OTU table after CLR transformation
