@@ -25,6 +25,7 @@ ps_rare <- readRDS("output/ps_rare.rds")
 ps_rare
 alpha_diversity <- readRDS("output/alpha_diversity.rds")
 alpha_diversity
+ps_clr <- readRDS("output/ps_clr.rds")
 
 ##Access the OTU table, sample metadata and taxonomy table files
 otu_table(ps)
@@ -292,4 +293,56 @@ plot_ordination(ps_rel_abund, bray_ord, color = "Status") +
 vegan::adonis2(bray_dist ~ phyloseq::sample_data(ps_rel_abund)$Status)
 
 #Differential abundance testing
+##Wilcoxon rank sum test
+#Generate a data.frame with OTUs and metadata
+ps_wilcox <- data.frame(t(data.frame(phyloseq::otu_table(ps_clr))))
+ps_wilcox
+colnames(ps_wilcox)
+ps_wilcox$Status <- phyloseq::sample_data(ps_clr)$Status
+
+#Define functions to pass to map
+wilcox_model <- function(df){wilcox.test(abund ~ Status, data = df)}
+wilcox_pval <- function(df){wilcox.test(abund ~ Status, data = df)$p.value}
+
+#Create nested data frames by OTU and loop over each using map
+wilcox_results <- ps_wilcox %>% 
+  gather(key = OTU, value = abund, -Status) %>% 
+  group_by(OTU) %>% 
+  nest() %>% 
+  mutate(wilcox_test = map(data, wilcox_model),
+         p_value = map(data, wilcox_pval))
+
+#Show results
+head(wilcox_results)
+head(wilcox_results$data[[1]])
+wilcox_results$wilcox_test[[1]]
+
+#Unnest
+wilcox_results <- wilcox_results %>% 
+  dplyr::select(OTU, p_value) %>% 
+  unnest()
+head(wilcox_results)
+
+#Adding taxonomic labels
+taxa_info <- data.frame(tax_table(ps_clr))
+taxa_info <- taxa_info %>% 
+  rownames_to_column(var = "OTU")
+
+#Computing FDR corrected p-values
+wilcox_results <- wilcox_results %>% 
+  full_join(taxa_info) %>% 
+  arrange(p_value) %>% 
+  mutate(BH_FDR = p.adjust(p_value, "BH")) %>% 
+  filter(BH_FDR < 0.05) %>% 
+  dplyr::select(OTU, p_value, BH_FDR, everything())
+
+#Print results
+print.data.frame(wilcox_results)
+
+#Save results
+write.csv(wilcox_results, file = "output/wilcox_results.csv")
+
+
+
+
 
